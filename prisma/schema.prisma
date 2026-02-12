@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth & Users ───────────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum UserRole {
+  MANAGER
+  MEMBER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  role          UserRole  @default(MEMBER)
+  createdAt     DateTime  @default(now())
+
+  // Settings
+  workloadCalendarId   String?
+  logFutureWindowDays  Int      @default(30)
+  canCreateWorkload    Boolean  @default(true)
+  showEventTitles      Boolean  @default(true)
+
+  accounts     Account[]
+  sessions     Session[]
+  assignedTasks     Task[]         @relation("TaskAssignee")
+  createdTasks      Task[]         @relation("TaskCreator")
+  ownedDeliverables Deliverable[]  @relation("DeliverableOwner")
+  workloadItems     WorkloadItem[] @relation("WorkloadUser")
+  createdWorkloads  WorkloadItem[] @relation("WorkloadCreator")
+  createdProjects   Project[]      @relation("ProjectCreator")
+  auditActions      AuditLog[]     @relation("AuditActor")
+  auditSubject      AuditLog[]     @relation("AuditSubject")
+}
+
+// ─── Projects ───────────────────────────────────────────────────────────────
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  CLOSED
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  name          String
+  client        String?
+  status        ProjectStatus @default(ACTIVE)
+  startDate     DateTime?
+  endDate       DateTime?
+  driveFolderId String?
+  createdById   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  createdBy    User          @relation("ProjectCreator", fields: [createdById], references: [id])
+  tasks        Task[]
+  milestones   Milestone[]
+  deliverables Deliverable[]
+  financial    Financial?
+  financialDocs FinancialDoc[]
+  workloadItems WorkloadItem[]
+}
+
+// ─── Tasks ──────────────────────────────────────────────────────────────────
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+model Task {
+  id              String     @id @default(cuid())
+  title           String
+  description     String?    @db.Text
+  status          TaskStatus @default(NOT_STARTED)
+  dueAt           DateTime?
+  assigneeId      String?
+  projectId       String?
+  driveLink       String?
+  tags            String[]
+  calendarEventId String?
+  createdById     String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  assignee  User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy User     @relation("TaskCreator", fields: [createdById], references: [id])
+}
+
+// ─── Milestones & Deliverables ──────────────────────────────────────────────
+
+model Milestone {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  dueAt       DateTime?
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deliverables Deliverable[]
+}
+
+enum DeliverableStatus {
+  DRAFT
+  IN_REVIEW
+  DELIVERED
+}
+
+model Deliverable {
+  id              String            @id @default(cuid())
+  projectId       String
+  milestoneId     String?
+  name            String
+  ownerId         String?
+  dueAt           DateTime?
+  status          DeliverableStatus @default(DRAFT)
+  driveLink       String?
+  calendarEventId String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  owner     User?      @relation("DeliverableOwner", fields: [ownerId], references: [id])
+}
+
+// ─── Workload Items (ad-hoc entries not tied to tasks) ──────────────────────
+
+enum WorkloadStatus {
+  PLANNED
+  IN_PROGRESS
+  DONE
+}
+
+model WorkloadItem {
+  id              String         @id @default(cuid())
+  title           String
+  userId          String
+  startAt         DateTime
+  endAt           DateTime?
+  status          WorkloadStatus @default(PLANNED)
+  projectId       String?
+  calendarEventId String?
+  createdById     String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user      User     @relation("WorkloadUser", fields: [userId], references: [id])
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy User     @relation("WorkloadCreator", fields: [createdById], references: [id])
+}
+
+// ─── Financial (manager-only) ───────────────────────────────────────────────
+
+model Financial {
+  projectId String  @id
+  budget    Float?
+  invoiced  Float?
+  collected Float?
+  costs     Float?
+  notes     String? @db.Text
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model FinancialDoc {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  driveLink String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// ─── Audit Log ──────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  actorId       String
+  subjectUserId String?
+  action        String
+  entityType    String
+  entityId      String?
+  beforeJson    Json?
+  afterJson     Json?
+  timestamp     DateTime @default(now())
+
+  actor   User  @relation("AuditActor", fields: [actorId], references: [id])
+  subject User? @relation("AuditSubject", fields: [subjectUserId], references: [id])
+
+  @@index([subjectUserId, timestamp])
+  @@index([entityType, entityId])
+}
