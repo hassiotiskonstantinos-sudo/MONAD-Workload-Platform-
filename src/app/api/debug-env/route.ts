@@ -1,37 +1,42 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const envVars = [
-    'GOOGLE_CLIENT_ID',
-    'GOOGLE_CLIENT_SECRET',
-    'NEXTAUTH_URL',
-    'NEXTAUTH_SECRET',
-    'DATABASE_URL',
-  ];
+  // Compare dot notation (webpack-inlined) vs bracket notation (runtime)
+  const dotNotation = {
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    DATABASE_URL: process.env.DATABASE_URL,
+  };
 
-  const report: Record<string, { exists: boolean; length: number; preview: string }> = {};
+  const bracketNotation: Record<string, string | undefined> = {};
+  for (const key of ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'NEXTAUTH_SECRET', 'DATABASE_URL']) {
+    bracketNotation[key] = process.env[key];
+  }
 
-  for (const name of envVars) {
-    const val = process.env[name];
-    report[name] = {
-      exists: val !== undefined && val !== '',
-      length: val?.length ?? 0,
-      preview: val
-        ? `${val.substring(0, 4)}...${ val.length > 4 ? val.substring(val.length - 4) : ''}`
-        : '(empty)',
+  function summarize(val: string | undefined) {
+    if (val === undefined) return { exists: false, length: 0, preview: '(undefined)' };
+    if (val === '') return { exists: false, length: 0, preview: '(empty string)' };
+    return {
+      exists: true,
+      length: val.length,
+      preview: `${val.substring(0, 4)}...${val.length > 4 ? val.substring(val.length - 4) : ''}`,
     };
   }
 
-  // Also list ALL env var keys that contain "GOOGLE" or "SECRET" or "CLIENT"
-  const relatedKeys = Object.keys(process.env).filter(
-    (k) => k.includes('GOOGLE') || k.includes('SECRET') || k.includes('CLIENT')
-  );
+  const report: Record<string, unknown> = {};
+  for (const key of Object.keys(dotNotation)) {
+    report[key] = {
+      dotNotation: summarize(dotNotation[key as keyof typeof dotNotation]),
+      bracketNotation: summarize(bracketNotation[key]),
+      match: dotNotation[key as keyof typeof dotNotation] === bracketNotation[key],
+    };
+  }
 
   return NextResponse.json({
     timestamp: new Date().toISOString(),
     env: report,
-    relatedEnvKeys: relatedKeys,
     nodeEnv: process.env.NODE_ENV,
-    vercelEnv: process.env.VERCEL_ENV,
+    vercelEnv: process.env['VERCEL_ENV'],
   });
 }

@@ -9,8 +9,8 @@ async function getDriveClient(userId: string): Promise<drive_v3.Drive | null> {
   if (!account?.access_token) return null;
 
   const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
+    process.env['GOOGLE_CLIENT_ID'],
+    process.env['GOOGLE_CLIENT_SECRET']
   );
 
   oauth2Client.setCredentials({

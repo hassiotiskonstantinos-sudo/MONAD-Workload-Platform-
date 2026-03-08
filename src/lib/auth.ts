@@ -1,30 +1,19 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 
-const adminEmails = (process.env.ADMIN_EMAILS || '')
+// Use bracket notation to prevent Next.js webpack DefinePlugin from
+// inlining these as empty strings at build time.
+// process.env.X is replaced at build time; process.env['X'] is read at runtime.
+function getEnv(key: string): string {
+  return process.env[key] ?? '';
+}
+
+const adminEmails = getEnv('ADMIN_EMAILS')
   .split(',')
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
-const allowedDomain = process.env.ALLOWED_DOMAIN || '';
-
-const googleClientId = process.env.GOOGLE_CLIENT_ID ?? '';
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? '';
-const nextAuthSecret = process.env.NEXTAUTH_SECRET ?? '';
-
-console.log('[AUTH CONFIG] GOOGLE_CLIENT_ID exists:', !!googleClientId, 'length:', googleClientId.length);
-console.log('[AUTH CONFIG] GOOGLE_CLIENT_SECRET exists:', !!googleClientSecret, 'length:', googleClientSecret.length);
-console.log('[AUTH CONFIG] NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
-console.log('[AUTH CONFIG] NEXTAUTH_SECRET exists:', !!nextAuthSecret);
-console.log('[AUTH CONFIG] DATABASE_URL exists:', !!process.env.DATABASE_URL);
-console.log('[AUTH CONFIG] NODE_ENV:', process.env.NODE_ENV);
-console.log('[AUTH CONFIG] VERCEL_ENV:', process.env.VERCEL_ENV);
-
-if (!googleClientId || !googleClientSecret) {
-  console.error('[AUTH CONFIG] FATAL: Google OAuth credentials missing!');
-  console.error('[AUTH CONFIG] GOOGLE_CLIENT_ID is', googleClientId ? 'SET' : 'EMPTY');
-  console.error('[AUTH CONFIG] GOOGLE_CLIENT_SECRET is', googleClientSecret ? 'SET' : 'EMPTY');
-}
+const allowedDomain = getEnv('ALLOWED_DOMAIN');
 
 // Lazy-load prisma to avoid crashing the module if DATABASE_URL is missing
 async function getPrisma() {
@@ -44,6 +33,15 @@ try {
 } catch (e) {
   console.error('[AUTH CONFIG] PrismaAdapter creation FAILED:', e instanceof Error ? e.message : e);
 }
+
+const googleClientId = getEnv('GOOGLE_CLIENT_ID');
+const googleClientSecret = getEnv('GOOGLE_CLIENT_SECRET');
+const nextAuthSecret = getEnv('NEXTAUTH_SECRET');
+
+console.log('[AUTH CONFIG] GOOGLE_CLIENT_ID exists:', !!googleClientId, 'length:', googleClientId.length);
+console.log('[AUTH CONFIG] GOOGLE_CLIENT_SECRET exists:', !!googleClientSecret, 'length:', googleClientSecret.length);
+console.log('[AUTH CONFIG] NEXTAUTH_SECRET exists:', !!nextAuthSecret);
+console.log('[AUTH CONFIG] adapter:', !!adapter);
 
 export const authOptions: NextAuthOptions = {
   debug: true,
@@ -134,8 +132,6 @@ export const authOptions: NextAuthOptions = {
   },
   secret: nextAuthSecret,
 };
-
-console.log('[AUTH CONFIG] authOptions created. adapter:', !!adapter, 'session strategy:', adapter ? 'database' : 'jwt');
 
 export function isManager(role: string | undefined): boolean {
   return role === 'MANAGER';
