@@ -1,7 +1,7 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
-import { prisma } from './prisma';
+import { PrismaClient } from '@prisma/client';
 
 const adminEmails = (process.env.ADMIN_EMAILS || '')
   .split(',')
@@ -9,6 +9,16 @@ const adminEmails = (process.env.ADMIN_EMAILS || '')
   .filter(Boolean);
 
 const allowedDomain = process.env.ALLOWED_DOMAIN || '';
+
+// Create a dedicated prisma instance for auth to isolate failures
+let prisma: PrismaClient;
+try {
+  prisma = new PrismaClient();
+  console.log('[AUTH] PrismaClient created successfully');
+} catch (e) {
+  console.error('[AUTH] FATAL: PrismaClient creation failed:', e);
+  prisma = new PrismaClient();
+}
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? '';
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? '';
@@ -21,8 +31,8 @@ console.log('[AUTH CONFIG] GOOGLE_CLIENT_SECRET length:', googleClientSecret.len
 console.log('[AUTH CONFIG] NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
 console.log('[AUTH CONFIG] NEXTAUTH_SECRET exists:', !!process.env.NEXTAUTH_SECRET);
 console.log('[AUTH CONFIG] DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('[AUTH CONFIG] DATABASE_URL preview:', (process.env.DATABASE_URL || '').slice(0, 20) + '...');
 console.log('[AUTH CONFIG] ALLOWED_DOMAIN:', allowedDomain || '(empty)');
-// Log all env var keys that contain GOOGLE or AUTH to catch naming mismatches
 console.log('[AUTH CONFIG] Env keys with GOOGLE:', Object.keys(process.env).filter(k => k.includes('GOOGLE')));
 console.log('[AUTH CONFIG] Env keys with AUTH:', Object.keys(process.env).filter(k => k.includes('AUTH')));
 
@@ -69,33 +79,44 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user }) {
+      console.log('[AUTH] signIn callback, user email:', user.email);
       if (!user.email) return false;
       if (allowedDomain && !user.email.endsWith(`@${allowedDomain}`)) {
+        console.log('[AUTH] signIn rejected: domain mismatch');
         return '/auth/error?error=AccessDenied';
       }
       return true;
     },
     async session({ session, user }) {
-      if (session.user) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { id: true, role: true, email: true, name: true, image: true },
-        });
-        if (dbUser) {
-          session.user.id = dbUser.id;
-          session.user.role = dbUser.role;
+      try {
+        if (session.user) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { id: true, role: true, email: true, name: true, image: true },
+          });
+          if (dbUser) {
+            session.user.id = dbUser.id;
+            session.user.role = dbUser.role;
+          }
         }
+      } catch (e) {
+        console.error('[AUTH] session callback DB error:', e);
       }
       return session;
     },
   },
   events: {
     async createUser({ user }) {
-      if (user.email && adminEmails.includes(user.email.toLowerCase())) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { role: 'MANAGER' },
-        });
+      console.log('[AUTH] createUser event:', user.email);
+      try {
+        if (user.email && adminEmails.includes(user.email.toLowerCase())) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { role: 'MANAGER' },
+          });
+        }
+      } catch (e) {
+        console.error('[AUTH] createUser event DB error:', e);
       }
     },
   },
