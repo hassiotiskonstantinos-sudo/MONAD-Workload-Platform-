@@ -16,7 +16,7 @@ export async function getSession(): Promise<AuthSession | null> {
     providers: [
       GoogleProvider({
         clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET || "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",
       }),
     ],
   });
