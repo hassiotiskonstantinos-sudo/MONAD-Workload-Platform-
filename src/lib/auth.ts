@@ -10,6 +10,15 @@ const adminEmails = (process.env.ADMIN_EMAILS || '')
 
 const allowedDomain = process.env.ALLOWED_DOMAIN || '';
 
+console.log('[AUTH CONFIG] GOOGLE_CLIENT_ID exists:', !!process.env.GOOGLE_CLIENT_ID);
+console.log('[AUTH CONFIG] GOOGLE_CLIENT_ID length:', (process.env.GOOGLE_CLIENT_ID || '').length);
+console.log('[AUTH CONFIG] GOOGLE_CLIENT_SECRET exists:', !!process.env.GOOGLE_CLIENT_SECRET);
+console.log('[AUTH CONFIG] GOOGLE_CLIENT_SECRET length:', (process.env.GOOGLE_CLIENT_SECRET || '').length);
+console.log('[AUTH CONFIG] NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
+console.log('[AUTH CONFIG] NEXTAUTH_SECRET exists:', !!process.env.NEXTAUTH_SECRET);
+console.log('[AUTH CONFIG] DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('[AUTH CONFIG] ALLOWED_DOMAIN:', allowedDomain || '(empty)');
+
 export const authOptions: NextAuthOptions = {
   debug: true,
   logger: {
