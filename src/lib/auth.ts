@@ -1,7 +1,5 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { PrismaAdapter } from '@next-auth/prisma-adapter';
-import { prisma } from './prisma';
 
 const adminEmails = (process.env.ADMIN_EMAILS || '')
   .split(',')
@@ -9,10 +7,6 @@ const adminEmails = (process.env.ADMIN_EMAILS || '')
   .filter(Boolean);
 
 const allowedDomain = process.env.ALLOWED_DOMAIN || '';
-
-// Log ALL env keys so we can see exactly what Vercel injects
-const allEnvKeys = Object.keys(process.env).sort();
-console.log('[AUTH CONFIG] ALL ENV KEYS:', JSON.stringify(allEnvKeys));
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? '';
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? '';
@@ -23,7 +17,6 @@ console.log('[AUTH CONFIG] GOOGLE_CLIENT_SECRET exists:', !!googleClientSecret, 
 console.log('[AUTH CONFIG] NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
 console.log('[AUTH CONFIG] NEXTAUTH_SECRET exists:', !!nextAuthSecret);
 console.log('[AUTH CONFIG] DATABASE_URL exists:', !!process.env.DATABASE_URL);
-console.log('[AUTH CONFIG] ALLOWED_DOMAIN:', allowedDomain || '(empty)');
 console.log('[AUTH CONFIG] NODE_ENV:', process.env.NODE_ENV);
 console.log('[AUTH CONFIG] VERCEL_ENV:', process.env.VERCEL_ENV);
 
@@ -32,8 +25,19 @@ if (!googleClientId || !googleClientSecret) {
   console.error('[AUTH CONFIG] GOOGLE_CLIENT_ID is', googleClientId ? 'SET' : 'EMPTY');
   console.error('[AUTH CONFIG] GOOGLE_CLIENT_SECRET is', googleClientSecret ? 'SET' : 'EMPTY');
 }
-if (!nextAuthSecret) {
-  console.error('[AUTH CONFIG] FATAL: NEXTAUTH_SECRET is missing!');
+
+// Lazy-load prisma to avoid crashing the module if DATABASE_URL is missing
+async function getPrisma() {
+  const { prisma } = await import('./prisma');
+  return prisma;
+}
+
+// Lazy-load PrismaAdapter only when needed
+function createAdapter() {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { PrismaAdapter } = require('@next-auth/prisma-adapter');
+  const { prisma } = require('./prisma');
+  return PrismaAdapter(prisma);
 }
 
 export const authOptions: NextAuthOptions = {
@@ -49,7 +53,7 @@ export const authOptions: NextAuthOptions = {
       console.log('[NEXTAUTH DEBUG]', code, JSON.stringify(metadata, null, 2));
     },
   },
-  adapter: PrismaAdapter(prisma),
+  adapter: createAdapter(),
   providers: [
     GoogleProvider({
       clientId: googleClientId,
@@ -83,6 +87,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, user }) {
       try {
+        const prisma = await getPrisma();
         if (session.user) {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
@@ -103,6 +108,7 @@ export const authOptions: NextAuthOptions = {
     async createUser({ user }) {
       console.log('[AUTH] createUser event:', user.email);
       try {
+        const prisma = await getPrisma();
         if (user.email && adminEmails.includes(user.email.toLowerCase())) {
           await prisma.user.update({
             where: { id: user.id },
