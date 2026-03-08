@@ -2,7 +2,6 @@ import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from './prisma';
-import { UserRole } from '@prisma/client';
 
 const adminEmails = (process.env.ADMIN_EMAILS || '')
   .split(',')
@@ -15,8 +14,8 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
       authorization: {
         params: {
           scope: [
@@ -38,7 +37,7 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user }) {
       if (!user.email) return false;
       if (allowedDomain && !user.email.endsWith(`@${allowedDomain}`)) {
-        return false;
+        return '/auth/error?error=AccessDenied';
       }
       return true;
     },
@@ -61,7 +60,7 @@ export const authOptions: NextAuthOptions = {
       if (user.email && adminEmails.includes(user.email.toLowerCase())) {
         await prisma.user.update({
           where: { id: user.id },
-          data: { role: UserRole.MANAGER },
+          data: { role: 'MANAGER' },
         });
       }
     },
@@ -77,5 +76,5 @@ export const authOptions: NextAuthOptions = {
 };
 
 export function isManager(role: string | undefined): boolean {
-  return role === UserRole.MANAGER;
+  return role === 'MANAGER';
 }

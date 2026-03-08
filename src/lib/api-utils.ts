@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from './auth';
-import { UserRole } from '@prisma/client';
 
 export interface AuthSession {
   user: {
     id: string;
-    role: UserRole;
+    role: string;
     email: string;
     name?: string | null;
   };
@@ -22,7 +21,7 @@ export function requireManager(session: AuthSession | null): NextResponse | null
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  if (session.user.role !== UserRole.MANAGER) {
+  if (session.user.role !== 'MANAGER') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   return null;
