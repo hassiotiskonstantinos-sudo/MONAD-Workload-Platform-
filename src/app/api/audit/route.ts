@@ -1,9 +1,8 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getSession, requireManager, jsonOk, jsonError } from '@/lib/api-utils';
-import { Prisma } from '@prisma/client';
+import { NextRequest, NextResponse } from 'next/server';
+import { getSession, requireManager } from '@/lib/api-utils';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -11,6 +10,9 @@ export async function GET(req: NextRequest) {
   if (err) return err;
 
   try {
+    // Dynamic import to avoid Prisma client evaluation at build time
+    const { prisma } = await import('@/lib/prisma');
+
     const searchParams = req.nextUrl.searchParams;
     const userId = searchParams.get('userId');
     const entityType = searchParams.get('entityType');
@@ -19,7 +21,8 @@ export async function GET(req: NextRequest) {
     const pageParam = searchParams.get('page');
     const limitParam = searchParams.get('limit');
 
-    const where: Prisma.AuditLogWhereInput = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {};
 
     if (userId) {
       where.subjectUserId = userId;
@@ -54,9 +57,9 @@ export async function GET(req: NextRequest) {
       prisma.auditLog.count({ where }),
     ]);
 
-    return jsonOk({ logs, total, page, limit });
+    return NextResponse.json({ logs, total, page, limit });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Internal error';
-    return jsonError(message, 500);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
