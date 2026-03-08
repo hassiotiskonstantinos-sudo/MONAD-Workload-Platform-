@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from './auth';
+import GoogleProvider from 'next-auth/providers/google';
 
 export interface AuthSession {
   user: {
@@ -12,7 +12,14 @@ export interface AuthSession {
 }
 
 export async function getSession(): Promise<AuthSession | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession({
+    providers: [
+      GoogleProvider({
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      }),
+    ],
+  });
   if (!session?.user?.id) return null;
   return session as AuthSession;
 }
