@@ -126,6 +126,7 @@ model Task {
   driveLink       String?
   tags            String[]
   calendarEventId String?
+  pending         Boolean    @default(false)  // true = awaiting manager approval
   createdById     String
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt

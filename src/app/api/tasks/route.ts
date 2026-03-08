@@ -32,6 +32,12 @@ export async function GET(req: NextRequest) {
     where.status = params.status;
   }
 
+  if (params.pending === 'true') {
+    where.pending = true;
+  } else if (params.pending === 'false') {
+    where.pending = false;
+  }
+
   if (params.dueBefore) {
     where.dueAt = { ...(where.dueAt as object || {}), lte: new Date(params.dueBefore) };
   }
@@ -67,6 +73,9 @@ export async function POST(req: NextRequest) {
   // Members can only create tasks for themselves
   const effectiveAssignee = isManager ? (assigneeId || null) : session.user.id;
 
+  // Members create tasks as pending (awaiting manager approval)
+  const isPending = !isManager;
+
   const task = await prisma.task.create({
     data: {
       title,
@@ -77,6 +86,7 @@ export async function POST(req: NextRequest) {
       projectId: projectId || null,
       driveLink: driveLink || null,
       tags: tags || [],
+      pending: isPending,
       createdById: session.user.id,
     },
     include: {
@@ -85,8 +95,8 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Create calendar event for assignee
-  if (task.assigneeId && task.dueAt) {
+  // Create calendar event only if task is NOT pending approval
+  if (!task.pending && task.assigneeId && task.dueAt) {
     const eventId = await createCalendarEvent(task.assigneeId, {
       title: task.title,
       description: `Task: ${task.title}${task.project ? ` | Project: ${task.project.name}` : ''}`,

@@ -4,6 +4,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { TeamToday } from '@/components/dashboard/TeamToday';
 import { MyTasksToday } from '@/components/dashboard/MyTasksToday';
 import { PendingDeliverables } from '@/components/dashboard/PendingDeliverables';
+import { PendingApproval } from '@/components/dashboard/PendingApproval';
 
 export default function DashboardPage() {
   return (
@@ -14,6 +15,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="space-y-8">
+        <PendingApproval />
         <TeamToday />
         <MyTasksToday />
         <PendingDeliverables />
