@@ -12,7 +12,7 @@ export interface AuthSession {
 }
 
 export async function getSession(): Promise<AuthSession | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions());
   if (!session?.user?.id) return null;
   return session as AuthSession;
 }
