@@ -32,12 +32,17 @@ async function getPrisma() {
   return prisma;
 }
 
-// Lazy-load PrismaAdapter only when needed
-function createAdapter() {
+// Create PrismaAdapter with error handling
+let adapter: ReturnType<typeof import('@next-auth/prisma-adapter').PrismaAdapter> | undefined;
+try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { PrismaAdapter } = require('@next-auth/prisma-adapter');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { prisma } = require('./prisma');
-  return PrismaAdapter(prisma);
+  adapter = PrismaAdapter(prisma);
+  console.log('[AUTH CONFIG] PrismaAdapter created successfully');
+} catch (e) {
+  console.error('[AUTH CONFIG] PrismaAdapter creation FAILED:', e instanceof Error ? e.message : e);
 }
 
 export const authOptions: NextAuthOptions = {
@@ -53,7 +58,7 @@ export const authOptions: NextAuthOptions = {
       console.log('[NEXTAUTH DEBUG]', code, JSON.stringify(metadata, null, 2));
     },
   },
-  adapter: createAdapter(),
+  ...(adapter ? { adapter } : {}),
   providers: [
     GoogleProvider({
       clientId: googleClientId,
@@ -125,10 +130,12 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   session: {
-    strategy: 'database',
+    strategy: adapter ? 'database' : 'jwt',
   },
   secret: nextAuthSecret,
 };
+
+console.log('[AUTH CONFIG] authOptions created. adapter:', !!adapter, 'session strategy:', adapter ? 'database' : 'jwt');
 
 export function isManager(role: string | undefined): boolean {
   return role === 'MANAGER';
