@@ -11,6 +11,18 @@ const adminEmails = (process.env.ADMIN_EMAILS || '')
 const allowedDomain = process.env.ALLOWED_DOMAIN || '';
 
 export const authOptions: NextAuthOptions = {
+  debug: true,
+  logger: {
+    error(code, metadata) {
+      console.error('[NEXTAUTH ERROR]', code, JSON.stringify(metadata, null, 2));
+    },
+    warn(code) {
+      console.warn('[NEXTAUTH WARN]', code);
+    },
+    debug(code, metadata) {
+      console.log('[NEXTAUTH DEBUG]', code, JSON.stringify(metadata, null, 2));
+    },
+  },
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
