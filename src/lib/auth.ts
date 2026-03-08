@@ -10,6 +10,10 @@ const adminEmails = (process.env.ADMIN_EMAILS || '')
 
 const allowedDomain = process.env.ALLOWED_DOMAIN || '';
 
+// Log ALL env keys so we can see exactly what Vercel injects
+const allEnvKeys = Object.keys(process.env).sort();
+console.log('[AUTH CONFIG] ALL ENV KEYS:', JSON.stringify(allEnvKeys));
+
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? '';
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? '';
 const nextAuthSecret = process.env.NEXTAUTH_SECRET ?? '';
@@ -20,9 +24,13 @@ console.log('[AUTH CONFIG] NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
 console.log('[AUTH CONFIG] NEXTAUTH_SECRET exists:', !!nextAuthSecret);
 console.log('[AUTH CONFIG] DATABASE_URL exists:', !!process.env.DATABASE_URL);
 console.log('[AUTH CONFIG] ALLOWED_DOMAIN:', allowedDomain || '(empty)');
+console.log('[AUTH CONFIG] NODE_ENV:', process.env.NODE_ENV);
+console.log('[AUTH CONFIG] VERCEL_ENV:', process.env.VERCEL_ENV);
 
 if (!googleClientId || !googleClientSecret) {
   console.error('[AUTH CONFIG] FATAL: Google OAuth credentials missing!');
+  console.error('[AUTH CONFIG] GOOGLE_CLIENT_ID is', googleClientId ? 'SET' : 'EMPTY');
+  console.error('[AUTH CONFIG] GOOGLE_CLIENT_SECRET is', googleClientSecret ? 'SET' : 'EMPTY');
 }
 if (!nextAuthSecret) {
   console.error('[AUTH CONFIG] FATAL: NEXTAUTH_SECRET is missing!');
