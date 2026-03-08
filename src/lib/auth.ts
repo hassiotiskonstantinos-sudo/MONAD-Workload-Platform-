@@ -1,7 +1,7 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './prisma';
 
 const adminEmails = (process.env.ADMIN_EMAILS || '')
   .split(',')
@@ -10,36 +10,22 @@ const adminEmails = (process.env.ADMIN_EMAILS || '')
 
 const allowedDomain = process.env.ALLOWED_DOMAIN || '';
 
-// Create a dedicated prisma instance for auth to isolate failures
-let prisma: PrismaClient;
-try {
-  prisma = new PrismaClient();
-  console.log('[AUTH] PrismaClient created successfully');
-} catch (e) {
-  console.error('[AUTH] FATAL: PrismaClient creation failed:', e);
-  prisma = new PrismaClient();
-}
-
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? '';
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? '';
+const nextAuthSecret = process.env.NEXTAUTH_SECRET ?? '';
 
-console.log('[AUTH CONFIG] GOOGLE_CLIENT_ID exists:', !!googleClientId);
-console.log('[AUTH CONFIG] GOOGLE_CLIENT_ID length:', googleClientId.length);
-console.log('[AUTH CONFIG] GOOGLE_CLIENT_ID preview:', googleClientId.slice(0, 8) + '...');
-console.log('[AUTH CONFIG] GOOGLE_CLIENT_SECRET exists:', !!googleClientSecret);
-console.log('[AUTH CONFIG] GOOGLE_CLIENT_SECRET length:', googleClientSecret.length);
+console.log('[AUTH CONFIG] GOOGLE_CLIENT_ID exists:', !!googleClientId, 'length:', googleClientId.length);
+console.log('[AUTH CONFIG] GOOGLE_CLIENT_SECRET exists:', !!googleClientSecret, 'length:', googleClientSecret.length);
 console.log('[AUTH CONFIG] NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
-console.log('[AUTH CONFIG] NEXTAUTH_SECRET exists:', !!process.env.NEXTAUTH_SECRET);
+console.log('[AUTH CONFIG] NEXTAUTH_SECRET exists:', !!nextAuthSecret);
 console.log('[AUTH CONFIG] DATABASE_URL exists:', !!process.env.DATABASE_URL);
-console.log('[AUTH CONFIG] DATABASE_URL preview:', (process.env.DATABASE_URL || '').slice(0, 20) + '...');
 console.log('[AUTH CONFIG] ALLOWED_DOMAIN:', allowedDomain || '(empty)');
-console.log('[AUTH CONFIG] Env keys with GOOGLE:', Object.keys(process.env).filter(k => k.includes('GOOGLE')));
-console.log('[AUTH CONFIG] Env keys with AUTH:', Object.keys(process.env).filter(k => k.includes('AUTH')));
 
 if (!googleClientId || !googleClientSecret) {
-  console.error('[AUTH CONFIG] FATAL: Missing Google OAuth credentials!');
-  console.error('[AUTH CONFIG] GOOGLE_CLIENT_ID is', googleClientId ? 'SET' : 'EMPTY/MISSING');
-  console.error('[AUTH CONFIG] GOOGLE_CLIENT_SECRET is', googleClientSecret ? 'SET' : 'EMPTY/MISSING');
+  console.error('[AUTH CONFIG] FATAL: Google OAuth credentials missing!');
+}
+if (!nextAuthSecret) {
+  console.error('[AUTH CONFIG] FATAL: NEXTAUTH_SECRET is missing!');
 }
 
 export const authOptions: NextAuthOptions = {
@@ -127,7 +113,7 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'database',
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: nextAuthSecret,
 };
 
 export function isManager(role: string | undefined): boolean {
